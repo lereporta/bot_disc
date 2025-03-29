@@ -1,8 +1,5 @@
-// index.js
-const { Client, GatewayIntentBits, PermissionsBitField } = require(
-    "discord.js",
-);
-require("dotenv").config(); // Linha adicionada
+const { Client, GatewayIntentBits, PermissionsBitField, ChannelType } = require("discord.js");
+require("dotenv").config();
 
 const client = new Client({
     intents: [
@@ -13,6 +10,7 @@ const client = new Client({
 });
 
 const PREFIX = "!";
+const CANAL_LIMPEZA = "🆕cria-projetos-novos"; // Nome do canal onde as mensagens devem ser apagadas
 
 client.on("ready", () => {
     console.log(`Bot está online como ${client.user.tag}!`);
@@ -24,130 +22,132 @@ client.on("messageCreate", async (message) => {
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // Comando !ping
-    if (command === "ping") {
-        const pingMessage = await message.channel.send("Pong!");
-        pingMessage.edit(
-            `Pong! Latência é ${
-                pingMessage.createdTimestamp - message.createdTimestamp
-            }ms`,
-        );
-        return;
-    }
-
-    // Comando !criarprojeto
     if (command === "criarprojeto") {
-        message.channel.send("Qual o nome do projeto?");
-
+        message.channel.send("Qual o nome do fórum a ser criado?");
         const filter = (m) => m.author.id === message.author.id;
-        const projectNameCollector = await message.channel.awaitMessages({
+        const respostaForum = await message.channel.awaitMessages({
             filter,
             max: 1,
             time: 60000,
         });
-        if (!projectNameCollector.size) {
+
+        if (!respostaForum.size) {
             return message.channel.send("Tempo esgotado. Tente novamente.");
         }
-        const projectName = projectNameCollector.first().content;
+        
+        const nomeForum = respostaForum.first().content;
+        const categoria = message.guild.channels.cache.find((c) => c.name === "PROJETOS" && c.type === ChannelType.GuildCategory);
 
-        message.channel.send("Mencione os usuários para o projeto:");
-        const usersCollector = await message.channel.awaitMessages({
-            filter,
-            max: 1,
-            time: 60000,
-        });
-        if (!usersCollector.size) {
-            return message.channel.send("Tempo esgotado. Tente novamente.");
-        }
-        const mentionedUsers = usersCollector.first().mentions.members;
-
-        if (!mentionedUsers.size) {
-            return message.channel.send("Nenhum usuário mencionado.");
+        if (!categoria) {
+            return message.channel.send("Categoria 'PROJETOS' não encontrada. Certifique-se de que ela existe.");
         }
 
-        const adminRole = message.guild.roles.cache.find((r) =>
-            r.permissions.has(PermissionsBitField.Flags.Administrator)
-        );
-
+        let forumChannel;
         try {
-            const projectCategory = await message.guild.channels.create({
-                name: projectName,
-                type: 4,
-                permissionOverwrites: [
-                    {
-                        id: message.guild.id,
-                        deny: [PermissionsBitField.Flags.ViewChannel],
-                    },
-                    ...mentionedUsers.map((user) => ({
-                        id: user.id,
-                        allow: [
-                            PermissionsBitField.Flags.ViewChannel,
-                            PermissionsBitField.Flags.SendMessages,
-                            PermissionsBitField.Flags.Connect,
-                        ],
-                    })),
-                    ...(adminRole
-                        ? [{
-                            id: adminRole.id,
-                            allow: [PermissionsBitField.Flags.ViewChannel],
-                        }]
-                        : []),
+            forumChannel = await message.guild.channels.create({
+                name: nomeForum,
+                type: ChannelType.GuildForum,
+                parent: categoria.id,
+                availableTags: [
+                    { name: "🎨Design" },
+                    { name: "💻Front-End" },
+                    { name: "🖥Back-End" },
+                    { name: "🐳DevOps" },
                 ],
+                    defaultReactionEmoji: null,
+                    defaultThreadRateLimitPerUser: 0,
+                    defaultSortOrder: null,
+                    defaultForumLayout: 0,
+                    flags: 0,
+                    topic: "",
+                    requireTag: true, // <- Isso força a seleção de tag (pelo menos é pra ser)
             });
+                
 
-            await message.guild.channels.create({
-                name: `${projectName}-texto`,
-                type: 0,
-                parent: projectCategory.id,
-                permissionOverwrites: projectCategory.permissionOverwrites.cache
-                    .map((p) => p),
-            });
-
-            await message.guild.channels.create({
-                name: `${projectName}-voz`,
-                type: 2,
-                parent: projectCategory.id,
-                permissionOverwrites: projectCategory.permissionOverwrites.cache
-                    .map((p) => p),
-            });
-
-            message.channel.send(`Projeto **${projectName}** criado!`);
         } catch (err) {
             console.error(err);
-            message.channel.send("Erro ao criar projeto.");
+            return message.channel.send("Erro ao criar o fórum.");
         }
+
+        // Criar postagens dentro do fórum com as tags corretas
+        const postagens = [
+            { name: "Design", tagName: "🎨Design", message: "Discussão sobre Design!" },
+            { name: "Front-End", tagName: "💻Front-End", message: "Discussão sobre Front-End!" },
+            { name: "Back-End", tagName: "🖥Back-End", message: "Discussão sobre Back-End!" },
+            { name: "DevOps", tagName: "🐳DevOps", message: "Discussão sobre DevOps!" },
+        ];
+        
+        function normalizarEmoji(str) {
+            return str
+                .replace(/\uFE0F/g, '') 
+                .replace(/\u200B/g, '') 
+                .trim();
+        }
+
+        for (const postagem of postagens) {
+            const tag = forumChannel.availableTags.find((t) => t.name.trim().toLowerCase() === postagem.tagName.trim().toLowerCase());
+
+            if (!tag) {
+                console.warn(` Tag não encontrada para "${postagem.name}". Verifique se o nome e o emoji da tag correspondem ao que está no Discord.`);
+                continue;
+            }
+
+            try {
+                const threadMessage = await forumChannel.threads.create({
+                    name: postagem.name,
+                    autoArchiveDuration: 1440,
+                    appliedTags: [tag.id],
+                    message: { content: postagem.message },
+                    reason: "Criação automática de postagem para organização do projeto",
+                });
+
+                console.log(` Postagem criada: ${postagem.name}`);
+            } catch (err) {
+                console.error(` Erro ao criar a postagem "${postagem.name}":`, err);
+            }
+        }
+
+        message.channel.send(`Fórum **${nomeForum}** criado com as postagens: ${postagens.map(p => p.name).join(", ")}.`);
     }
 
-    // Comando !removercanal
+    // Comando !removercanal atualizado para remover fóruns também
     if (command === "removercanal") {
-        if (
-            !message.member.permissions.has(
-                PermissionsBitField.Flags.Administrator,
-            )
-        ) {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             return message.channel.send("Você precisa ser administrador!");
         }
 
         const channelName = args.join(" ");
         if (!channelName) {
-            return message.channel.send("Digite o nome do canal.");
+            return message.channel.send("Digite o nome do canal ou fórum que deseja remover.");
         }
 
-        const channel = message.guild.channels.cache.find((c) =>
-            c.name === channelName
-        );
-        if (!channel) return message.channel.send("Canal não encontrado.");
+        const channel = message.guild.channels.cache.find((c) => c.name === channelName);
+        if (!channel) return message.channel.send("Canal ou fórum não encontrado.");
 
         try {
             await channel.delete();
-            message.channel.send(`Canal **${channelName}** removido.`);
+            message.channel.send(`Canal ou fórum **${channelName}** removido.`);
         } catch (err) {
             console.error(err);
-            message.channel.send("Erro ao remover canal.");
+            message.channel.send("Erro ao remover canal ou fórum.");
         }
+    }
+});
+
+//  limpa mensagens no canal cria-projetos-novos após 1 minuto
+client.on("messageCreate", async (message) => {
+    if (message.channel.name === CANAL_LIMPEZA) {
+        setTimeout(async () => {
+            try {
+                if (!message.pinned) {
+                    await message.delete();
+                }
+            } catch (err) {
+                console.warn(`Erro ao deletar mensagem: ${err.message}`);
+            }
+        }, 60000); // 1 minuto
     }
 });
 
 // Última linha do arquivo:
 client.login(process.env.DISCORD_TOKEN);
-
