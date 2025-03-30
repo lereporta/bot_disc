@@ -22,6 +22,17 @@ client.on("messageCreate", async (message) => {
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
+    // Comando !ping
+    if (command === "ping") {
+        const pingMessage = await message.channel.send("Pong!");
+        pingMessage.edit(
+            `Pong! Latência é ${
+                pingMessage.createdTimestamp - message.createdTimestamp
+            }ms`,
+        );
+        return;
+    }    
+
     if (command === "criarprojeto") {
         message.channel.send("Qual o nome do fórum a ser criado?");
         const filter = (m) => m.author.id === message.author.id;
