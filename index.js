@@ -1,4 +1,6 @@
-const { Client, GatewayIntentBits, PermissionsBitField, ChannelType } = require("discord.js");
+const { Client, GatewayIntentBits, PermissionsBitField, ChannelType } = require(
+    "discord.js",
+);
 require("dotenv").config();
 
 const client = new Client({
@@ -31,10 +33,10 @@ client.on("messageCreate", async (message) => {
             }ms`,
         );
         return;
-    }    
+    }
 
     if (command === "criarprojeto") {
-        message.channel.send("Qual o nome do fórum a ser criado?");
+        message.channel.send("Qual o nome do projeto a ser criado?");
         const filter = (m) => m.author.id === message.author.id;
         const respostaForum = await message.channel.awaitMessages({
             filter,
@@ -45,12 +47,16 @@ client.on("messageCreate", async (message) => {
         if (!respostaForum.size) {
             return message.channel.send("Tempo esgotado. Tente novamente.");
         }
-        
+
         const nomeForum = respostaForum.first().content;
-        const categoria = message.guild.channels.cache.find((c) => c.name === "PROJETOS" && c.type === ChannelType.GuildCategory);
+        const categoria = message.guild.channels.cache.find((c) =>
+            c.name === "PROJETOS" && c.type === ChannelType.GuildCategory
+        );
 
         if (!categoria) {
-            return message.channel.send("Categoria 'PROJETOS' não encontrada. Certifique-se de que ela existe.");
+            return message.channel.send(
+                "Categoria 'PROJETOS' não encontrada. Certifique-se de que ela existe.",
+            );
         }
 
         let forumChannel;
@@ -65,16 +71,14 @@ client.on("messageCreate", async (message) => {
                     { name: "🖥Back-End" },
                     { name: "🐳DevOps" },
                 ],
-                    defaultReactionEmoji: null,
-                    defaultThreadRateLimitPerUser: 0,
-                    defaultSortOrder: null,
-                    defaultForumLayout: 0,
-                    flags: 0,
-                    topic: "",
-                    requireTag: true, // <- Isso força a seleção de tag (pelo menos é pra ser)
+                defaultReactionEmoji: null,
+                defaultThreadRateLimitPerUser: 0,
+                defaultSortOrder: null,
+                defaultForumLayout: 0,
+                flags: 0,
+                topic: "",
+                requireTag: true, // <- Isso força a seleção de tag (pelo menos é pra ser)
             });
-                
-
         } catch (err) {
             console.error(err);
             return message.channel.send("Erro ao criar o fórum.");
@@ -82,24 +86,45 @@ client.on("messageCreate", async (message) => {
 
         // Criar postagens dentro do fórum com as tags corretas
         const postagens = [
-            { name: "Design", tagName: "🎨Design", message: "Discussão sobre Design!" },
-            { name: "Front-End", tagName: "💻Front-End", message: "Discussão sobre Front-End!" },
-            { name: "Back-End", tagName: "🖥Back-End", message: "Discussão sobre Back-End!" },
-            { name: "DevOps", tagName: "🐳DevOps", message: "Discussão sobre DevOps!" },
+            {
+                name: "Design",
+                tagName: "🎨Design",
+                message: "Discussão sobre Design!",
+            },
+            {
+                name: "Front-End",
+                tagName: "💻Front-End",
+                message: "Discussão sobre Front-End!",
+            },
+            {
+                name: "Back-End",
+                tagName: "🖥Back-End",
+                message: "Discussão sobre Back-End!",
+            },
+            {
+                name: "DevOps",
+                tagName: "🐳DevOps",
+                message: "Discussão sobre DevOps!",
+            },
         ];
-        
+
         function normalizarEmoji(str) {
             return str
-                .replace(/\uFE0F/g, '') 
-                .replace(/\u200B/g, '') 
+                .replace(/\uFE0F/g, "")
+                .replace(/\u200B/g, "")
                 .trim();
         }
 
         for (const postagem of postagens) {
-            const tag = forumChannel.availableTags.find((t) => t.name.trim().toLowerCase() === postagem.tagName.trim().toLowerCase());
+            const tag = forumChannel.availableTags.find((t) =>
+                t.name.trim().toLowerCase() ===
+                    postagem.tagName.trim().toLowerCase()
+            );
 
             if (!tag) {
-                console.warn(` Tag não encontrada para "${postagem.name}". Verifique se o nome e o emoji da tag correspondem ao que está no Discord.`);
+                console.warn(
+                    ` Tag não encontrada para "${postagem.name}". Verifique se o nome e o emoji da tag correspondem ao que está no Discord.`,
+                );
                 continue;
             }
 
@@ -109,31 +134,49 @@ client.on("messageCreate", async (message) => {
                     autoArchiveDuration: 1440,
                     appliedTags: [tag.id],
                     message: { content: postagem.message },
-                    reason: "Criação automática de postagem para organização do projeto",
+                    reason:
+                        "Criação automática de postagem para organização do projeto",
                 });
 
                 console.log(` Postagem criada: ${postagem.name}`);
             } catch (err) {
-                console.error(` Erro ao criar a postagem "${postagem.name}":`, err);
+                console.error(
+                    ` Erro ao criar a postagem "${postagem.name}":`,
+                    err,
+                );
             }
         }
 
-        message.channel.send(`Fórum **${nomeForum}** criado com as postagens: ${postagens.map(p => p.name).join(", ")}.`);
+        message.channel.send(
+            `Fórum **${nomeForum}** criado com as postagens: ${
+                postagens.map((p) => p.name).join(", ")
+            }.`,
+        );
     }
 
     // Comando !removercanal atualizado para remover fóruns também
     if (command === "removercanal") {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.channel.send("Você precisa ser administrador!");
+        if (
+            !message.member.permissions.has(
+                PermissionsBitField.Flags.Administrator,
+            )
+        ) {
+            return message.channel.send("Você precisa ser administrador mané!");
         }
 
         const channelName = args.join(" ");
         if (!channelName) {
-            return message.channel.send("Digite o nome do canal ou fórum que deseja remover.");
+            return message.channel.send(
+                "Digite o nome do canal ou projeto que deseja remover.",
+            );
         }
 
-        const channel = message.guild.channels.cache.find((c) => c.name === channelName);
-        if (!channel) return message.channel.send("Canal ou fórum não encontrado.");
+        const channel = message.guild.channels.cache.find((c) =>
+            c.name === channelName
+        );
+        if (!channel) {
+            return message.channel.send("Canal ou fórum não encontrado.");
+        }
 
         try {
             await channel.delete();

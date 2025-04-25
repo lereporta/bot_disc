@@ -1,0 +1,10 @@
+services:
+  bot_disc:
+    build: .
+    container_name: bot_disc
+    volumes:
+      - .:/usr/src/app
+    env_file:
+      - .env
+    restart: unless-stopped
+
